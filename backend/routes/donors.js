@@ -130,22 +130,64 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// PUT update donor details
+// PUT update donor details (phone & email)
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { full_name, phone, email, blood_group, city_or_area } = req.body;
+    const { phone, email, full_name, blood_group, city_or_area } = req.body;
 
-    const result = await pool.query(
-      `UPDATE donors SET full_name=$1, phone=$2, email=$3, blood_group=$4, city_or_area=$5
-       WHERE donor_id=$6 RETURNING *`,
-      [full_name, phone, email, blood_group, city_or_area, id]
+    if (!phone || !email) {
+      return res.status(400).json({ success: false, message: 'Phone and email are required' });
+    }
+
+    // Check for duplicate email on another donor
+    const duplicate = await pool.query(
+      'SELECT donor_id FROM donors WHERE email = $1 AND donor_id != $2',
+      [email, id]
+    );
+    if (duplicate.rows.length > 0) {
+      return res.status(409).json({ success: false, message: 'Email already registered by another donor' });
+    }
+
+    const currentDonor = await pool.query('SELECT * FROM donors WHERE donor_id = $1', [id]);
+    if (currentDonor.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Donor not found' });
+    }
+
+    const updated = await pool.query(
+      `UPDATE donors 
+       SET phone = $1, 
+           email = $2, 
+           full_name = COALESCE($3, full_name), 
+           blood_group = COALESCE($4, blood_group), 
+           city_or_area = COALESCE($5, city_or_area)
+       WHERE donor_id = $6 RETURNING *`,
+      [
+        phone,
+        email,
+        full_name || null,
+        blood_group || null,
+        city_or_area || null,
+        id
+      ]
     );
 
+    res.json({ success: true, donor: updated.rows[0], message: 'Profile updated successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// DELETE donor profile (deletes donor and cascades to appointments & donations)
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('DELETE FROM donors WHERE donor_id = $1 RETURNING *', [id]);
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Donor not found' });
     }
-    res.json({ success: true, donor: result.rows[0] });
+    res.json({ success: true, message: 'Donor profile and related records deleted successfully' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: 'Server error' });

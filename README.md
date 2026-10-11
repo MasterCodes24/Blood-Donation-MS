@@ -7,15 +7,17 @@ This project aims to replace scattered manual processes with a small, organized 
 ## ✨ Features
 
 ### For Donors:
-- **Donor Registration:** Donors can securely register their details (name, blood group, contact info, area).
-- **Appointment Booking:** Request a donation appointment date easily.
-- **Confidential Donor Portal:** Donors can log in securely using their Donor ID and Email/Phone to view their appointment history and recorded donations.
+- **Donor Registration (Create):** Donors can securely register their details (name, blood group, contact info, area).
+- **Appointment Booking (Create):** Request a donation appointment date easily.
+- **Confidential Donor Portal (Read):** Donors can log in securely using their Donor ID and Email/Phone to view their appointment history and recorded donations.
+- **Manage Contact Information (Update):** Donors can edit and update their phone number and email address directly from their portal.
+- **Profile Removal (Delete):** Donors can delete their profile, which automatically cascades to clean up all related appointment and donation records.
 
 ### For Staff/Administrators:
-- **Staff Dashboard:** Comprehensive overview with live statistics (Total Donors, Donations, Pending Requests, Blood Group distribution).
-- **Donor Management:** Search, filter (by blood group), and view complete profiles of donors.
-- **Appointment Processing:** Staff can confirm, reject, or cancel incoming appointment requests.
-- **Donation Recording:** Staff can record completed donations and link them to previous appointments.
+- **Staff Dashboard (Read):** Comprehensive overview with live statistics (Total Donors, Donations, Pending Requests, Blood Group distribution).
+- **Donor Management (Read):** Search, filter (by blood group), and view complete profiles of donors.
+- **Appointment Processing & Completion (Update):** Staff can confirm, reject, cancel, or mark appointments as **Completed (Donated 🩸)**, automatically converting the pending appointment into a completed donation.
+- **Donation Recording (Create):** Staff can record completed donations and link them to appointments.
 - **Secure Access:** JWT-based authentication for staff and Role-Based Access (Admins can create other staff accounts).
 
 ## 🛠️ Technology Stack

@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS appointments (
     donor_id         INT NOT NULL REFERENCES donors(donor_id) ON DELETE CASCADE,
     appointment_date DATE NOT NULL,
     status           VARCHAR(20) NOT NULL DEFAULT 'requested'
-        CHECK (status IN ('requested', 'confirmed', 'rejected', 'cancelled'))
+        CHECK (status IN ('requested', 'confirmed', 'rejected', 'cancelled', 'completed'))
 );
 
 CREATE TABLE IF NOT EXISTS donations (

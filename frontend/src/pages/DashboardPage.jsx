@@ -217,6 +217,32 @@ function AppointmentsList() {
     finally { setUpdating(null); }
   };
 
+  const completeDonation = async (id) => {
+    if (!window.confirm('Mark this appointment as Completed and record donation for today?')) return;
+    setUpdating(id);
+    try {
+      // First try dedicated complete endpoint
+      const res = await API.post(`/appointments/${id}/complete`, {});
+      alert(res.data.message || 'Donation completed successfully!');
+      setAppointments((prev) =>
+        prev.map((a) => a.appointment_id === id ? { ...a, status: 'completed' } : a)
+      );
+    } catch (e) {
+      // Fallback to PATCH /status with 'completed'
+      try {
+        const patchRes = await API.patch(`/appointments/${id}/status`, { status: 'completed' });
+        alert('Appointment marked as completed and donation recorded!');
+        setAppointments((prev) =>
+          prev.map((a) => a.appointment_id === id ? { ...a, status: 'completed' } : a)
+        );
+      } catch (err2) {
+        alert(e.response?.data?.message || err2.response?.data?.message || 'Failed to complete donation');
+      }
+    } finally {
+      setUpdating(null);
+    }
+  };
+
   return (
     <div>
       <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
@@ -229,6 +255,7 @@ function AppointmentsList() {
           <option value="">All Statuses</option>
           <option value="requested">Requested</option>
           <option value="confirmed">Confirmed</option>
+          <option value="completed">Completed</option>
           <option value="rejected">Rejected</option>
           <option value="cancelled">Cancelled</option>
         </select>
@@ -259,13 +286,21 @@ function AppointmentsList() {
                     <td><span className={`badge badge-${a.status}`}>{a.status}</span></td>
                     <td>
                       {a.status === 'requested' && (
-                        <div style={{ display: 'flex', gap: 6 }}>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                           <button
                             className="btn btn-success btn-sm"
                             disabled={updating === a.appointment_id}
                             onClick={() => updateStatus(a.appointment_id, 'confirmed')}
                           >
                             ✅ Confirm
+                          </button>
+                          <button
+                            className="btn btn-primary btn-sm"
+                            disabled={updating === a.appointment_id}
+                            onClick={() => completeDonation(a.appointment_id)}
+                            title="Donor arrived: mark completed and record donation"
+                          >
+                            🩸 Donated
                           </button>
                           <button
                             className="btn btn-danger btn-sm"
@@ -277,13 +312,26 @@ function AppointmentsList() {
                         </div>
                       )}
                       {a.status === 'confirmed' && (
-                        <button
-                          className="btn btn-outline btn-sm"
-                          disabled={updating === a.appointment_id}
-                          onClick={() => updateStatus(a.appointment_id, 'cancelled')}
-                        >
-                          Cancel
-                        </button>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            className="btn btn-primary btn-sm"
+                            disabled={updating === a.appointment_id}
+                            onClick={() => completeDonation(a.appointment_id)}
+                            title="Donor arrived: mark completed and record donation"
+                          >
+                            🩸 Complete Donation
+                          </button>
+                          <button
+                            className="btn btn-outline btn-sm"
+                            disabled={updating === a.appointment_id}
+                            onClick={() => updateStatus(a.appointment_id, 'cancelled')}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+                      {a.status === 'completed' && (
+                        <span className="text-success text-sm font-bold">✅ Donated</span>
                       )}
                       {(a.status === 'rejected' || a.status === 'cancelled') && (
                         <span className="text-muted text-sm">—</span>

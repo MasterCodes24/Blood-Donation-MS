@@ -77,7 +77,7 @@ router.patch('/:id/status', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    const validStatuses = ['requested', 'confirmed', 'rejected', 'cancelled'];
+    const validStatuses = ['requested', 'confirmed', 'rejected', 'cancelled', 'completed'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ success: false, message: 'Invalid status' });
     }
@@ -91,10 +91,72 @@ router.patch('/:id/status', authenticateToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Appointment not found' });
     }
 
+    // If status is updated to completed, automatically insert donation record if not already recorded
+    if (status === 'completed') {
+      const apt = result.rows[0];
+      const today = new Date().toISOString().split('T')[0];
+      await pool.query(
+        `INSERT INTO donations (donor_id, appointment_id, donation_date)
+         VALUES ($1, $2, $3)`,
+        [apt.donor_id, id, today]
+      );
+    }
+
     res.json({ success: true, appointment: result.rows[0], message: `Appointment ${status}` });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ success: false, message: err.message || 'Server error' });
+  }
+});
+
+// POST mark appointment as completed and record donation (staff only)
+router.post('/:id/complete', authenticateToken, async (req, res) => {
+  let client;
+  try {
+    const { id } = req.params;
+    const donation_date = (req.body && req.body.donation_date) || new Date().toISOString().split('T')[0];
+
+    client = await pool.connect();
+    await client.query('BEGIN');
+
+    // 1. Fetch appointment
+    const aptResult = await client.query('SELECT * FROM appointments WHERE appointment_id = $1', [id]);
+    if (aptResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, message: 'Appointment not found' });
+    }
+
+    const apt = aptResult.rows[0];
+
+    // 2. Update status to completed
+    const updatedApt = await client.query(
+      "UPDATE appointments SET status = 'completed' WHERE appointment_id = $1 RETURNING *",
+      [id]
+    );
+
+    // 3. Insert or check donation record
+    const donationResult = await client.query(
+      `INSERT INTO donations (donor_id, appointment_id, donation_date)
+       VALUES ($1, $2, $3) RETURNING *`,
+      [apt.donor_id, id, donation_date]
+    );
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      message: 'Donation completed successfully! Appointment marked as completed.',
+      appointment: updatedApt.rows[0],
+      donation: donationResult.rows[0]
+    });
+  } catch (err) {
+    if (client) {
+      try { await client.query('ROLLBACK'); } catch (_) {}
+    }
+    console.error('Error completing appointment:', err);
+    res.status(500).json({ success: false, message: err.message || 'Server error completing donation' });
+  } finally {
+    if (client) client.release();
   }
 });
 
